@@ -17,7 +17,14 @@ module avmm_interface_memory #(
 );
 
     // Memory
-    logic [DATA_WIDTH:0] memory [CAPACITY / DATA_WIDTH - 1:0];
+    logic [DATA_WIDTH:0] memory [CAPACITY - 1:0];
+
+    initial begin
+        integer i;
+        for (i = 0; i < CAPACITY; i = i + 1) begin
+            memory[i] = 0;
+        end
+    end
 
     // timestamp logic
     logic [64:0] timestamp;
@@ -55,14 +62,22 @@ module avmm_interface_memory #(
     end
 
     always_comb begin
-        if (req_fifo_usage >= 57) begin
+        if (timestamp[0]) begin
+            ready = 0;
+        end
+        else if (req_fifo_usage >= 57) begin
             ready = 0;
         end
         else begin
             ready = 1;
         end
-        readdata = memory[req_fifo_data_o.address];
+
         readdatavalid = req_fifo_pop & req_fifo_data_o.read;
+        
+        if (readdatavalid)
+            readdata = memory[req_fifo_data_o.address];
+        else
+            readdata = 0;
     end
 
     // mask logic
@@ -70,7 +85,8 @@ module avmm_interface_memory #(
     always_comb begin
         mask = 0;
         for (int i = 0; i < DATA_WIDTH_IN_BYTES; i++) begin
-            mask[(i+1)*8-1:i*8] = req_fifo_data_o.byteenable[i] ? 8'hFF : 8'h00;
+            mask = mask << 8;
+            mask[7:0] = req_fifo_data_o.byteenable[DATA_WIDTH_IN_BYTES - i - 1] ? 8'hFF : 8'h00;
         end
     end
 
@@ -82,11 +98,11 @@ module avmm_interface_memory #(
     end
 
     fifo_v3 #(
-        .DATA_WIDTH(687),
+        .DATA_WIDTH(688),
         .DEPTH(64)
     ) req_fifo (
         .clk_i(clk),
-        .rst_ni(~rstn),
+        .rst_ni(rstn),
         .flush_i(0),
         .full_o(req_fifo_full),
         .empty_o(req_fifo_empty),
@@ -97,5 +113,43 @@ module avmm_interface_memory #(
         .pop_i(req_fifo_pop)
     );
 
+
+endmodule
+
+module avmm_interface_memory_multi_channel #(
+    parameter LATENCY = 100,
+    parameter CHANNELS = 2
+)(
+    input logic clk,
+    input logic rstn,
+    input logic [CHANNELS-1:0] read,
+    input logic [CHANNELS-1:0] write,
+    input logic [51:6] address [CHANNELS-1:0],
+    input logic [DATA_WIDTH_IN_BYTES - 1:0] byteenable [CHANNELS-1:0],
+    input logic [DATA_WIDTH-1:0] writedata [CHANNELS-1:0],
+
+    output logic [DATA_WIDTH-1:0] readdata [CHANNELS-1:0],
+    output logic [CHANNELS-1:0] readdatavalid,
+    output logic [CHANNELS-1:0] ready
+);
+
+    generate
+        for (genvar i = 0; i < CHANNELS; i++) begin
+            avmm_interface_memory #(
+                .LATENCY(LATENCY)
+            ) avmm_interface_memory_inst(
+                .clk(clk),
+                .rstn(rstn),
+                .read(read[i]),
+                .write(write[i]),
+                .address(address[i]),
+                .byteenable(byteenable[i]),
+                .writedata(writedata[i]),
+                .readdata(readdata[i]),
+                .readdatavalid(readdatavalid[i]),
+                .ready(ready[i])
+            );
+        end
+    endgenerate
 
 endmodule

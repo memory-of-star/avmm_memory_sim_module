@@ -1,10 +1,10 @@
 package avmm_memory_pkg;
 
 localparam DATA_WIDTH = 512;
-localparam CAPACITY = 8*1024*1024*1024;
+localparam CAPACITY = 32'h20000;
 localparam DATA_WIDTH_IN_BYTES = DATA_WIDTH / 8;
 
-// width: 624
+// width: 688
 typedef struct packed {
     logic read;
     logic write;
@@ -20,4 +20,4 @@ typedef struct packed {
     logic [DATA_WIDTH-1:0] readdata;
 } avmm_rsp;
 
-endpackage
+endpackage: avmm_memory_pkg
