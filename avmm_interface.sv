@@ -22,7 +22,8 @@ module avmm_interface_memory #(
     initial begin
         integer i;
         for (i = 0; i < CAPACITY; i = i + 1) begin
-            memory[i] = 0;
+            logic [31:0] pfn = i;
+            memory[i] = {16{pfn}};
         end
     end
 
@@ -62,10 +63,7 @@ module avmm_interface_memory #(
     end
 
     always_comb begin
-        if (timestamp[0]) begin
-            ready = 0;
-        end
-        else if (req_fifo_usage >= 57) begin
+        if (req_fifo_usage >= 57) begin
             ready = 0;
         end
         else begin
